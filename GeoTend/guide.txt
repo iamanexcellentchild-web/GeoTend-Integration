@@ -1,0 +1,68 @@
+GeoTend React front-end guide
+============================
+Built by The Game Changers
+
+1. Install dependencies
+   - Open the project folder in a terminal.
+   - Run: npm install
+
+2. Start the app locally
+   - Run: npm run dev
+   - Open the local URL shown in the terminal.
+
+3. How to make similar UI changes
+   - Main route structure lives in src/App.jsx.
+   - Page components are in src/pages/.
+   - Shared visual styling is in src/index.css.
+
+4. Common editing tips
+   - To change the landing or auth experience, edit src/pages/AuthPage.jsx.
+   - To change teacher views, edit the files in src/pages/ beginning with Teacher.
+   - To change student views, edit the files in src/pages/ beginning with Student.
+   - To change the overall color palette, spacing, or cards, edit src/index.css.
+
+5. To add a new page
+   - Create a new component in src/pages/.
+   - Import it into src/App.jsx.
+   - Add a route inside the <Routes> section.
+
+6. To build for production
+   - Run: npm run build
+
+7. Progressive Web App (PWA) Setup
+   - The app is configured as a PWA with offline support via service worker.
+   - Splash screen displays the GeoTend logo on app launch (3 seconds).
+   - Logo file: /public/logo.svg
+   - Manifest configuration: /public/manifest.json
+   - Service worker: /public/service-worker.js
+   - To update the logo, replace /public/logo.svg with a new SVG image.
+   - Icon assets can be added to /public/ for different sizes.
+
+8. Offline Support Features
+   - Announcements and analytics are cached automatically using Service Worker.
+   - Users can view cached announcements even without internet connection.
+   - Analytics data persists offline and syncs when online.
+   - Offline banner appears at top of screen when disconnected.
+   - Queue system for offline actions - automatically syncs when online.
+
+9. Offline Hooks and Utilities
+   - useOfflineMode() - Detect online/offline status
+   - useAnnouncementsWithOffline() - Fetch announcements with offline support
+   - useAnalyticsWithOffline() - Fetch analytics with offline support
+   - useOfflineQueue() - Manage offline action queue
+   - OfflineManager - Direct access to offline storage
+   - CacheAPI - Advanced cache control
+
+10. Testing Offline Features
+    - Chrome DevTools: Go to Network tab and check "Offline"
+    - Or go to Application > Service Workers and check "Offline"
+    - Install as PWA and test without internet
+    - View Service Worker status in DevTools > Application
+
+11. Storage and Cache Management
+    - LocalStorage: ~5-10MB per domain (announcements, analytics, user data)
+    - Cache API: 50MB+ (images, CSS, JS, API responses)
+    - Get storage info: OfflineManager.getStorageInfo()
+    - Clear all: OfflineManager.clearAllOfflineData()
+
+See OFFLINE_SUPPORT.md for detailed offline API documentation.

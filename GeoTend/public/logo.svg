@@ -1,0 +1,32 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="250" fill="#f0f9ff" stroke="#14b8a6" stroke-width="8"/>
+  
+  <!-- Blue arc -->
+  <g transform="translate(256, 256)">
+    <path d="M 0 -180 A 180 180 0 0 1 180 0" stroke="#003d82" stroke-width="40" fill="none" stroke-linecap="round"/>
+    <path d="M 0 -130 A 130 130 0 0 1 130 0" stroke="#0055b3" stroke-width="35" fill="none" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Teal marker and phone -->
+  <g transform="translate(256, 256)">
+    <!-- Location pin -->
+    <circle cx="-60" cy="-80" r="22" fill="#14b8a6"/>
+    <circle cx="-60" cy="-80" r="12" fill="#f0f9ff"/>
+    
+    <!-- Phone -->
+    <rect x="40" y="-100" width="80" height="140" rx="12" fill="none" stroke="#003d82" stroke-width="6"/>
+    <rect x="50" y="-85" width="60" height="100" rx="4" fill="#e0f2fe"/>
+    
+    <!-- Phone checkmark -->
+    <path d="M 65 -45 L 70 -35 L 80 -50" stroke="#14b8a6" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Phone user icon -->
+    <circle cx="80" cy="-10" r="6" fill="#003d82"/>
+    <path d="M 72 0 L 88 0" stroke="#003d82" stroke-width="2"/>
+  </g>
+  
+  <!-- Text: GEOTEND -->
+  <text x="256" y="420" font-family="Arial, sans-serif" font-size="64" font-weight="bold" text-anchor="middle" fill="#003d82">GEO</text>
+  <text x="256" y="420" font-family="Arial, sans-serif" font-size="64" font-weight="bold" text-anchor="middle" fill="#14b8a6" letter-spacing="0.5" dx="120">TEND</text>
+</svg>
