@@ -3,6 +3,11 @@ import OfflineManager from '../utils/offlineManager';
 import CacheAPI from '../utils/cacheAPI';
 import { useOfflineMode } from './useOfflineMode';
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('accessToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 /**
  * Hook for fetching announcements with offline support
  */
@@ -20,7 +25,7 @@ export function useAnnouncementsWithOffline(apiUrl) {
 
         // Try to fetch from API if online
         if (isOnline && apiUrl) {
-          const response = await CacheAPI.fetchNetworkFirst(apiUrl);
+          const response = await CacheAPI.fetchNetworkFirst(apiUrl, { headers: getAuthHeaders() });
           if (response.ok) {
             const data = await response.json();
             OfflineManager.saveAnnouncements(data);
@@ -75,7 +80,7 @@ export function useAnalyticsWithOffline(courseId, apiUrl) {
 
         // Try to fetch from API if online
         if (isOnline && apiUrl) {
-          const response = await CacheAPI.fetchNetworkFirst(apiUrl);
+          const response = await CacheAPI.fetchNetworkFirst(apiUrl, { headers: getAuthHeaders() });
           if (response.ok) {
             const data = await response.json();
             OfflineManager.saveAnalytics(courseId, data);

@@ -1,34 +1,29 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAnalyticsWithOffline } from '../hooks/useOfflineData';
 
 export default function TeacherAnalytics() {
-  const courseId = 'course-001';
+  // Previously hardcoded to 'course-001' regardless of which session was
+  // open — every analytics page showed the same (fake) numbers.
+  const { id: sessionId } = useParams();
 
   const { analytics, loading, error, isOnline } = useAnalyticsWithOffline(
-    courseId,
-    '/api/analytics'
+    sessionId,
+    `/api/attendance/sessions/${sessionId}/analytics/`
   );
-
-  const defaultAnalytics = {
-    present: 18,
-    absent: 4,
-    attendanceRate: 82,
-  };
-
-  const data = analytics || defaultAnalytics;
 
   const handleExportReport = () => {
     if (!isOnline) {
       alert('Export requires internet connection');
       return;
     }
+    if (!analytics) return;
 
-    const report = `Attendance Report\n${new Date().toLocaleString()}\n\nPresent,${data.present}\nAbsent,${data.absent}\nAttendance Rate,${data.attendanceRate}%`;
+    const report = `Attendance Report\n${new Date().toLocaleString()}\n\nCourse,${analytics.course_code}\nPresent,${analytics.present}\nRejected,${analytics.rejected}\nPending,${analytics.pending}\nTotal joined,${analytics.total_joined}\nPresent rate,${analytics.present_rate}%`;
     const blob = new Blob([report], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `report-${Date.now()}.csv`;
+    a.download = `report-${sessionId}-${Date.now()}.csv`;
     a.click();
   };
 
@@ -41,7 +36,7 @@ export default function TeacherAnalytics() {
               Attendance Analytics
             </h2>
             <p style={{ margin: '0', color: '#6e8090', fontSize: '14px' }}>
-              Class attendance overview
+              {analytics?.course_code ? `${analytics.course_code} session overview` : 'Session overview'}
             </p>
           </div>
           {!isOnline && (
@@ -56,25 +51,33 @@ export default function TeacherAnalytics() {
             <div className="spinner" style={{ margin: '0 auto' }}></div>
             <p style={{ marginTop: '16px', color: '#6e8090', fontSize: '14px' }}>Loading...</p>
           </div>
+        ) : error && !analytics ? (
+          <p style={{ color: '#b91c1c' }}>{error}</p>
         ) : (
           <>
             <div className="stats" style={{ marginBottom: '32px' }}>
               <div className="stat">
                 <span style={{ fontSize: '13px', fontWeight: '500', color: '#6e8090' }}>Present</span>
                 <strong style={{ fontSize: '32px', color: '#10b981', marginTop: '8px' }}>
-                  {data.present}
+                  {analytics?.present ?? 0}
                 </strong>
               </div>
               <div className="stat">
-                <span style={{ fontSize: '13px', fontWeight: '500', color: '#6e8090' }}>Absent</span>
+                <span style={{ fontSize: '13px', fontWeight: '500', color: '#6e8090' }}>Rejected</span>
                 <strong style={{ fontSize: '32px', color: '#ef4444', marginTop: '8px' }}>
-                  {data.absent}
+                  {analytics?.rejected ?? 0}
                 </strong>
               </div>
               <div className="stat">
-                <span style={{ fontSize: '13px', fontWeight: '500', color: '#6e8090' }}>Rate</span>
+                <span style={{ fontSize: '13px', fontWeight: '500', color: '#6e8090' }}>Pending</span>
+                <strong style={{ fontSize: '32px', color: '#f59e0b', marginTop: '8px' }}>
+                  {analytics?.pending ?? 0}
+                </strong>
+              </div>
+              <div className="stat">
+                <span style={{ fontSize: '13px', fontWeight: '500', color: '#6e8090' }}>Present rate</span>
                 <strong style={{ fontSize: '32px', color: '#0055b3', marginTop: '8px' }}>
-                  {data.attendanceRate}%
+                  {analytics?.present_rate ?? 0}%
                 </strong>
               </div>
             </div>
@@ -84,7 +87,7 @@ export default function TeacherAnalytics() {
                 className="btn primary"
                 type="button"
                 onClick={handleExportReport}
-                disabled={!isOnline}
+                disabled={!isOnline || !analytics}
               >
                 Export Report
               </button>

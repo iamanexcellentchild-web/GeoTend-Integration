@@ -1,0 +1,12 @@
+# Python / Django
+__pycache__/
+*.pyc
+db.sqlite3
+.env
+
+# Node / frontend
+node_modules/
+GeoTend/dist/
+
+# Editor
+.vscode/

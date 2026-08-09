@@ -12,7 +12,21 @@ async function requestJson(url, options = {}) {
     const payload = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
-      const message = typeof payload === 'string' ? payload : payload?.detail || payload?.message || 'Request failed';
+      let message = 'Request failed';
+      if (typeof payload === 'string') {
+        message = payload;
+      } else if (payload?.detail) {
+        message = payload.detail;
+      } else if (payload?.message) {
+        message = payload.message;
+      } else if (payload && typeof payload === 'object') {
+        const firstKey = Object.keys(payload)[0];
+        const firstValue = payload[firstKey];
+        if (firstKey && firstValue) {
+          const text = Array.isArray(firstValue) ? firstValue[0] : firstValue;
+          message = `${firstKey}: ${text}`;
+        }
+      }
       throw new Error(message);
     }
 
@@ -52,10 +66,19 @@ export async function getCurrentUser() {
   });
 }
 
-export async function verifyEmail() {
+export async function verifyEmail({ email, code }) {
   return requestJson(buildUrl('/api/auth/verify-email/'), {
     method: 'POST',
-    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export async function resendVerification({ email }) {
+  return requestJson(buildUrl('/api/auth/resend-verification/'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
   });
 }
 
@@ -100,5 +123,39 @@ export async function scanAttendance(payload) {
 export async function getAttendanceHistory() {
   return requestJson(buildUrl('/api/attendance/history/'), {
     headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  });
+}
+
+export async function endSession(sessionId) {
+  return requestJson(buildUrl(`/api/attendance/sessions/${sessionId}/end/`), {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  });
+}
+
+export async function getSessionAttendees(sessionId) {
+  return requestJson(buildUrl(`/api/attendance/sessions/${sessionId}/attendees/`), {
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  });
+}
+
+export async function getSessionAnalytics(sessionId) {
+  return requestJson(buildUrl(`/api/attendance/sessions/${sessionId}/analytics/`), {
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  });
+}
+
+export async function listAnnouncements(courseCode) {
+  const query = courseCode ? `?course_code=${encodeURIComponent(courseCode)}` : '';
+  return requestJson(buildUrl(`/api/attendance/announcements/${query}`), {
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  });
+}
+
+export async function createAnnouncement(payload) {
+  return requestJson(buildUrl('/api/attendance/announcements/'), {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
 }

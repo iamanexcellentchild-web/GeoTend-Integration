@@ -4,13 +4,16 @@ from rest_framework.response import Response
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Session, AttendanceRecord
+from .models import Session, AttendanceRecord, Announcement
 from .serializers import (
     CreateSessionSerializer,
     JoinSessionSerializer,
     RequestQRSerializer,
     ScanSerializer,
     SessionSummarySerializer,
+    AttendeeSerializer,
+    AnnouncementSerializer,
+    CreateAnnouncementSerializer,
 )
 from .utils import generate_qr_token, verify_qr_token, haversine_distance
 
@@ -127,6 +130,97 @@ class AttendanceHistoryView(APIView):
                 }
             )
         return Response(payload)
+
+
+class SessionEndView(APIView):
+    """Backs the 'End session' button, which previously had no handler at all."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, session_id):
+        try:
+            session = Session.objects.get(id=session_id)
+        except Session.DoesNotExist:
+            return Response({"detail": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if session.lecturer_id != request.user.id:
+            return Response({"detail": "Only the session's lecturer can end it"}, status=status.HTTP_403_FORBIDDEN)
+
+        if session.status == 'ended':
+            return Response({"detail": "Session already ended", "status": session.status})
+
+        session.status = 'ended'
+        session.end_time = timezone.now()
+        session.save(update_fields=['status', 'end_time'])
+        return Response({"detail": "Session ended", "status": session.status})
+
+
+class SessionAttendeesView(APIView):
+    """Real attendee list for the teacher's live-session view (was hardcoded mock data)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, session_id):
+        try:
+            session = Session.objects.get(id=session_id)
+        except Session.DoesNotExist:
+            return Response({"detail": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if session.lecturer_id != request.user.id:
+            return Response({"detail": "Only the session's lecturer can view attendees"}, status=status.HTTP_403_FORBIDDEN)
+
+        records = session.attendance_records.select_related('student').order_by('-created_at')
+        return Response(AttendeeSerializer(records, many=True).data)
+
+
+class SessionAnalyticsView(APIView):
+    """Real, computed analytics for a session (was hardcoded mock data, no endpoint existed)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, session_id):
+        try:
+            session = Session.objects.get(id=session_id)
+        except Session.DoesNotExist:
+            return Response({"detail": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if session.lecturer_id != request.user.id:
+            return Response({"detail": "Only the session's lecturer can view analytics"}, status=status.HTTP_403_FORBIDDEN)
+
+        records = session.attendance_records.all()
+        total = records.count()
+        present = records.filter(status='present').count()
+        rejected = records.filter(status='rejected').count()
+        pending = records.filter(status='pending').count()
+
+        return Response({
+            "session_id": session.id,
+            "course_code": session.course_code,
+            "status": session.status,
+            "total_joined": total,
+            "present": present,
+            "rejected": rejected,
+            "pending": pending,
+            "present_rate": round((present / total) * 100, 1) if total else 0,
+        })
+
+
+class AnnouncementListCreateView(APIView):
+    """Backs TeacherAnnouncements.jsx, which called /api/announcements — an endpoint that never existed."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        course_code = request.query_params.get('course_code')
+        announcements = Announcement.objects.all()
+        if course_code:
+            announcements = announcements.filter(course_code=course_code)
+        return Response(AnnouncementSerializer(announcements, many=True).data)
+
+    def post(self, request):
+        if request.user.role not in {'teacher', 'admin'}:
+            return Response({"detail": "Teacher access required"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CreateAnnouncementSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        announcement = Announcement.objects.create(author=request.user, **serializer.validated_data)
+        return Response(AnnouncementSerializer(announcement).data, status=status.HTTP_201_CREATED)
 
 
 class RequestQRView(APIView):

@@ -1,8 +1,28 @@
+import random
+
 from django.contrib.auth import authenticate
+from django.core.mail import send_mail
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
+
+
+def send_verification_code(user):
+    """Generate a fresh 6-digit code, store it, and email it to the user."""
+    code = f"{random.randint(0, 999999):06d}"
+    user.email_verification_code = code
+    user.email_verification_sent_at = timezone.now()
+    user.save(update_fields=['email_verification_code', 'email_verification_sent_at'])
+    send_mail(
+        subject='Your GeoTend verification code',
+        message=f'Your verification code is {code}. It expires in 15 minutes.',
+        from_email=None,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    return code
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -21,6 +41,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.is_active = True
         user.is_email_verified = False
         user.save()
+        send_verification_code(user)
         return user
 
 
@@ -41,6 +62,12 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         authenticated_user = authenticate(username=user.username, password=password)
         if authenticated_user is None or not authenticated_user.is_active:
             raise serializers.ValidationError({'detail': 'No active account found with the given credentials'})
+
+        if not authenticated_user.is_email_verified:
+            raise serializers.ValidationError({
+                'detail': 'Please verify your email before signing in.',
+                'code': 'email_not_verified',
+            })
 
         refresh = RefreshToken.for_user(authenticated_user)
         return {

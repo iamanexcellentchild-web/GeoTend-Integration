@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createSession } from '../utils/api';
+import { getCurrentPosition } from '../utils/geolocation';
 
 export default function TeacherSessionCreate() {
   const navigate = useNavigate();
@@ -12,6 +13,21 @@ export default function TeacherSessionCreate() {
   const [radius, setRadius] = useState('50');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const handleUseMyLocation = async () => {
+    setLocating(true);
+    setError('');
+    try {
+      const position = await getCurrentPosition();
+      setLatitude(String(position.latitude));
+      setLongitude(String(position.longitude));
+    } catch (err) {
+      setError(err.message || 'Unable to get your location');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -26,7 +42,7 @@ export default function TeacherSessionCreate() {
         code,
       });
       if (result?.id) {
-        navigate('/teacher/dashboard');
+        navigate(`/teacher/session/${result.id}/live`);
         return;
       }
       throw new Error(result?.detail || 'Unable to create session');
@@ -63,6 +79,9 @@ export default function TeacherSessionCreate() {
             Longitude
             <input value={longitude} onChange={(event) => setLongitude(event.target.value)} />
           </label>
+          <button className="btn secondary" type="button" onClick={handleUseMyLocation} disabled={locating}>
+            {locating ? 'Locating...' : 'Use my current location'}
+          </button>
           <label>
             Radius (meters)
             <input value={radius} onChange={(event) => setRadius(event.target.value)} />

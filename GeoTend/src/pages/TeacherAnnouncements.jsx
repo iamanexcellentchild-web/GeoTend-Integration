@@ -1,15 +1,24 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useAnnouncementsWithOffline, useOfflineQueue } from '../hooks/useOfflineData';
 
+function authHeaders() {
+  const token = localStorage.getItem('accessToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function TeacherAnnouncements() {
+  const { id: courseCode } = useParams();
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [publishStatus, setPublishStatus] = useState('');
 
-  const { announcements, loading, error, isOnline } = useAnnouncementsWithOffline(
-    '/api/announcements'
-  );
+  // The real backend route + auth header — the old version pointed at
+  // '/api/announcements', which doesn't exist anywhere in Django.
+  const apiUrl = `/api/attendance/announcements/?course_code=${encodeURIComponent(courseCode || '')}`;
+  const createUrl = '/api/attendance/announcements/';
+
+  const { announcements, loading, error, isOnline } = useAnnouncementsWithOffline(apiUrl);
   const { addToQueue } = useOfflineQueue();
 
   const handlePublish = async () => {
@@ -18,18 +27,19 @@ export default function TeacherAnnouncements() {
       return;
     }
 
+    // Field names match CreateAnnouncementSerializer on the backend.
     const announcementData = {
+      course_code: courseCode || '',
       title,
-      message,
-      timestamp: new Date().toISOString(),
+      body: message,
     };
 
     if (isOnline) {
       try {
         setPublishStatus('Publishing...');
-        const response = await fetch('/api/announcements', {
+        const response = await fetch(createUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify(announcementData),
         });
 
@@ -38,14 +48,17 @@ export default function TeacherAnnouncements() {
           setMessage('');
           setPublishStatus('✓ Published');
           setTimeout(() => setPublishStatus(''), 2000);
+        } else {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.detail || 'Failed to publish');
         }
       } catch (err) {
-        addToQueue('POST', '/api/announcements', announcementData);
+        addToQueue('POST', createUrl, announcementData);
         setPublishStatus('Saved for later sync');
         setTimeout(() => setPublishStatus(''), 2000);
       }
     } else {
-      addToQueue('POST', '/api/announcements', announcementData);
+      addToQueue('POST', createUrl, announcementData);
       setTitle('');
       setMessage('');
       setPublishStatus('Saved offline');
@@ -61,7 +74,7 @@ export default function TeacherAnnouncements() {
             Announcements
           </h2>
           <p style={{ margin: '0', color: '#6e8090', fontSize: '14px' }}>
-            Communicate with your class
+            {courseCode ? `Communicate with your ${courseCode} class` : 'Communicate with your class'}
           </p>
         </div>
 
@@ -75,7 +88,7 @@ export default function TeacherAnnouncements() {
                 <span style={{ fontWeight: '500', color: '#0d2f4f', display: 'block', marginBottom: '6px' }}>
                   Title
                 </span>
-                <input 
+                <input
                   placeholder="E.g., Assignment deadline"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -134,11 +147,11 @@ export default function TeacherAnnouncements() {
               </div>
             ) : announcements?.length > 0 ? (
               <div className="list" style={{ gap: '12px' }}>
-                {announcements.slice(0, 5).map((a, idx) => (
-                  <div key={idx} className="list-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                {announcements.slice(0, 5).map((a) => (
+                  <div key={a.id} className="list-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                     <strong style={{ fontSize: '14px', color: '#0d2f4f' }}>{a.title}</strong>
                     <span style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
-                      {a.timestamp ? new Date(a.timestamp).toLocaleDateString() : 'N/A'}
+                      {a.created_at ? new Date(a.created_at).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
                 ))}

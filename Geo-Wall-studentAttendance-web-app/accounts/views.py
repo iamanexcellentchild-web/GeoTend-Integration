@@ -1,10 +1,14 @@
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import User
-from .serializers import EmailTokenObtainPairSerializer, RegisterSerializer
+from .serializers import EmailTokenObtainPairSerializer, RegisterSerializer, send_verification_code
+
+CODE_TTL_MINUTES = 15
 
 
 class RegisterView(generics.CreateAPIView):
@@ -17,16 +21,58 @@ class EmailTokenObtainPairView(TokenObtainPairView):
 
 
 class VerifyEmailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    """
+    Public on purpose: the user doesn't have a JWT yet at this point in the
+    flow (they can't log in until they're verified). Verification happens by
+    proving they received the emailed code, not by already being authenticated.
+    """
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        user = request.user
+        email = request.data.get('email')
+        code = request.data.get('code')
+        if not email or not code:
+            return Response({"detail": "Email and code are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "Invalid email or code"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.is_email_verified:
+            return Response({"detail": "Email already verified", "is_email_verified": True})
+
+        if not user.email_verification_code or user.email_verification_code != code:
+            return Response({"detail": "Invalid email or code"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.email_verification_sent_at or timezone.now() - user.email_verification_sent_at > timedelta(minutes=CODE_TTL_MINUTES):
+            return Response({"detail": "Code expired. Request a new one."}, status=status.HTTP_400_BAD_REQUEST)
+
         user.is_email_verified = True
-        user.save(update_fields=['is_email_verified'])
+        user.email_verification_code = None
+        user.save(update_fields=['is_email_verified', 'email_verification_code'])
         return Response({
             "detail": "Email verified",
-            "is_email_verified": user.is_email_verified,
+            "is_email_verified": True,
         })
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Don't reveal whether the email exists.
+            return Response({"detail": "If that account exists, a code has been sent."})
+
+        if user.is_email_verified:
+            return Response({"detail": "Email already verified", "is_email_verified": True})
+
+        send_verification_code(user)
+        return Response({"detail": "If that account exists, a code has been sent."})
 
 
 class LogoutView(APIView):
