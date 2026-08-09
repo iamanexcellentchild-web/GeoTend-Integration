@@ -9,12 +9,19 @@ import StudentDashboard from './pages/StudentDashboard';
 import StudentJoin from './pages/StudentJoin';
 import StudentCheckin from './pages/StudentCheckin';
 import StudentHistory from './pages/StudentHistory';
+import ProfileEdit from './pages/ProfileEdit';
 import OfflineIndicator from './components/OfflineIndicator';
+import Navbar from './components/Navbar';
+
+function isAuthenticated() {
+  return Boolean(localStorage.getItem('accessToken'));
+}
 
 function Shell({ children }) {
   const location = useLocation();
   const isRegister = location.pathname === '/register';
   const isLogin = location.pathname === '/login';
+  const authed = isAuthenticated();
 
   return (
     <div className="app-shell">
@@ -24,23 +31,34 @@ function Shell({ children }) {
           <p className="eyebrow">UNILAG classroom attendance</p>
           <h1>GeoTend</h1>
         </div>
-        <nav className="top-nav" aria-label="Primary">
-          <Link to="/register" className={isRegister ? 'active' : ''}>Register</Link>
-          <Link to="/login" className={isLogin ? 'active' : ''}>Login</Link>
-        </nav>
+        {authed ? (
+          <Navbar />
+        ) : (
+          <nav className="top-nav" aria-label="Primary">
+            <Link to="/register" className={isRegister ? 'active' : ''}>Register</Link>
+            <Link to="/login" className={isLogin ? 'active' : ''}>Login</Link>
+          </nav>
+        )}
       </header>
       {children}
     </div>
   );
 }
 
+function HomeRedirect() {
+  if (!isAuthenticated()) return <Navigate to="/register" replace />;
+  const role = localStorage.getItem('geoRole') || 'student';
+  return <Navigate to={role === 'student' ? '/student/dashboard' : '/teacher/dashboard'} replace />;
+}
+
 export default function App() {
   return (
     <Shell>
       <Routes>
-        <Route path="/" element={<Navigate to="/register" replace />} />
+        <Route path="/" element={<HomeRedirect />} />
         <Route path="/login" element={<AuthPage type="login" />} />
         <Route path="/register" element={<AuthPage type="register" />} />
+        <Route path="/profile/edit" element={<ProfileEdit />} />
         <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
         <Route path="/teacher/session/new" element={<TeacherSessionCreate />} />
         <Route path="/teacher/session/:id/live" element={<TeacherSessionLive />} />

@@ -51,9 +51,17 @@ class VerifyEmailView(APIView):
         user.is_email_verified = True
         user.email_verification_code = None
         user.save(update_fields=['is_email_verified', 'email_verification_code'])
+
+        # Auto-login: hand back real tokens immediately so the frontend
+        # doesn't need to bounce the user through a separate login step.
+        refresh = RefreshToken.for_user(user)
         return Response({
             "detail": "Email verified",
             "is_email_verified": True,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "role": user.role,
+            "username": user.username,
         })
 
 
@@ -92,11 +100,25 @@ class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        return Response(self._serialize(request.user))
+
+    def patch(self, request):
         user = request.user
-        return Response({
+        for field in ('first_name', 'last_name'):
+            if field in request.data:
+                setattr(user, field, request.data[field] or '')
+        user.save(update_fields=['first_name', 'last_name'])
+        return Response(self._serialize(user))
+
+    def _serialize(self, user):
+        display_name = user.first_name or user.get_full_name() or user.username
+        return {
             "username": user.username,
             "email": user.email,
             "role": user.role,
             "matric_or_staff_id": user.matric_or_staff_id,
             "is_email_verified": user.is_email_verified,
-        })
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "display_name": display_name,
+        }

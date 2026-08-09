@@ -39,11 +39,16 @@ export default function AuthPage({ type }) {
 
     try {
       if (isRegister) {
+        const trimmedName = fullName.trim();
+        const [firstName, ...rest] = trimmedName ? trimmedName.split(/\s+/) : [];
+        const lastName = rest.join(' ');
         const payload = {
-          username: fullName.trim() || email.split('@')[0],
+          username: trimmedName ? trimmedName.replace(/\s+/g, '').toLowerCase() : email.split('@')[0],
           email,
           password,
           role,
+          first_name: firstName || '',
+          last_name: lastName || '',
           matric_or_staff_id: `${role === 'teacher' ? 'T' : 'S'}-${Date.now()}`,
         };
         const result = await registerUser(payload);
@@ -89,6 +94,19 @@ export default function AuthPage({ type }) {
     try {
       const result = await verifyEmail({ email, code });
       if (result?.is_email_verified) {
+        if (result.access) {
+          // Backend hands back real tokens on verify now, so log the user
+          // straight in instead of making them type their password again.
+          localStorage.setItem('accessToken', result.access);
+          localStorage.setItem('refreshToken', result.refresh);
+          const finalRole = result.role || role || localStorage.getItem('geoRole') || 'student';
+          localStorage.setItem('geoRole', finalRole);
+          setInfo('Email verified! Logging you in...');
+          setTimeout(() => {
+            navigate(finalRole === 'student' ? '/student/dashboard' : '/teacher/dashboard');
+          }, 2000);
+          return;
+        }
         setInfo('Email verified! You can sign in now.');
         setStep('form');
         setCode('');

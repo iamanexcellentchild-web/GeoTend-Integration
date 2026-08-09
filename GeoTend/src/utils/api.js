@@ -20,6 +20,7 @@ async function requestJson(url, options = {}) {
       } else if (payload?.message) {
         message = payload.message;
       } else if (payload && typeof payload === 'object') {
+        // DRF field errors look like {"username": ["already exists"], ...}
         const firstKey = Object.keys(payload)[0];
         const firstValue = payload[firstKey];
         if (firstKey && firstValue) {
@@ -63,6 +64,14 @@ export async function loginUser(payload) {
 export async function getCurrentUser() {
   return requestJson(buildUrl('/api/auth/me/'), {
     headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  });
+}
+
+export async function updateProfile(payload) {
+  return requestJson(buildUrl('/api/auth/me/'), {
+    method: 'PATCH',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
 }
 
